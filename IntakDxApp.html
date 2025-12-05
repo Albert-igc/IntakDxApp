@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>IntakDx WISP Manager Pro</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #10b981;
+            --primary-dark: #047857;
+            --secondary: #34d399;
+            --bg: #f3f4f6;
+            --text: #1f2937;
+            --white: #ffffff;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        * { box-sizing: border-box; font-family: 'Segoe UI', system-ui, sans-serif; }
+        
+        body { margin: 0; background-color: var(--bg); color: var(--text); overflow-x: hidden; }
+
+        /* --- SPLASH SCREEN --- */
+        #splash-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: linear-gradient(135deg, #064e3b 0%, #10b981 100%);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 9999; color: white; transition: opacity 0.8s ease-out;
+        }
+        .loader-icon { font-size: 4rem; animation: pulse 2s infinite; }
+        .loading-bar { width: 200px; height: 4px; background: rgba(255,255,255,0.3); margin-top: 20px; border-radius: 2px; overflow: hidden; }
+        .loading-progress { width: 0%; height: 100%; background: white; animation: load 2.5s ease-in-out forwards; }
+        @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.1); opacity: 0.8; } 100% { transform: scale(1); opacity: 1; } }
+        @keyframes load { 0% { width: 0%; } 100% { width: 100%; } }
+
+        /* --- AUTH SCREEN --- */
+        .auth-container { display: none; min-height: 100vh; justify-content: center; align-items: center; padding: 20px; background: var(--bg); }
+        .card { background: var(--white); padding: 30px; border-radius: 15px; box-shadow: var(--shadow); width: 100%; max-width: 400px; text-align: center; }
+        .pin-display { display: flex; justify-content: center; gap: 15px; margin: 20px 0; }
+        .pin-dot { width: 15px; height: 15px; border-radius: 50%; border: 2px solid var(--primary); transition: background 0.2s; }
+        .pin-dot.filled { background: var(--primary); }
+        .numpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 20px; }
+        .num-btn { padding: 15px; font-size: 1.2rem; border: none; background: #e5e7eb; border-radius: 50%; cursor: pointer; transition: background 0.2s; width: 60px; height: 60px; margin: 0 auto; }
+        .num-btn:active { background: var(--secondary); color: white; }
+
+        /* --- MAIN APP --- */
+        #main-app { display: none; padding-bottom: 50px; }
+        header { background: var(--primary); color: white; padding: 20px; border-bottom-left-radius: 25px; border-bottom-right-radius: 25px; box-shadow: var(--shadow); position: relative; }
+        .logout-btn { position: absolute; top: 20px; right: 20px; background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 12px; border-radius: 8px; cursor: pointer; }
+
+        /* MENU */
+        .info-scroll { display: flex; overflow-x: auto; gap: 15px; padding: 20px; margin-top: -30px; padding-bottom: 10px; }
+        .info-card { min-width: 250px; background: white; padding: 15px; border-radius: 12px; box-shadow: var(--shadow); border-left: 5px solid var(--secondary); flex-shrink: 0; }
+        .menu-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; padding: 20px; }
+        .menu-btn { background: white; border: none; padding: 20px; border-radius: 15px; box-shadow: var(--shadow); display: flex; flex-direction: column; align-items: center; gap: 10px; cursor: pointer; transition: transform 0.2s; }
+        .menu-btn i { font-size: 2rem; color: var(--primary); }
+        .menu-btn span { font-weight: 600; color: #444; }
+
+        /* FORMULARIOS */
+        .content-section { display: none; padding: 20px; animation: fadeIn 0.3s; }
+        .form-section-header { 
+            background: #e0f2f1; 
+            color: #00695c; 
+            padding: 10px; 
+            border-radius: 8px; 
+            margin-top: 25px; 
+            margin-bottom: 15px; 
+            font-weight: bold; 
+            border-left: 5px solid var(--primary);
+            display: flex; align-items: center; gap: 10px;
+        }
+        .form-grid { display: grid; grid-template-columns: 1fr; gap: 15px; }
+        @media (min-width: 768px) { .form-grid { grid-template-columns: 1fr 1fr; } }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.9rem; color: #444; }
+        .form-control { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 1rem; outline: none; background: #fff; }
+        .form-control:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1); }
+        .btn-primary { width: 100%; background: var(--primary); color: white; border: none; padding: 14px; border-radius: 10px; font-weight: bold; font-size: 1rem; cursor: pointer; margin-top: 20px; }
+        .btn-back { background: transparent; color: #666; border: none; margin-bottom: 15px; cursor: pointer; font-size: 1rem; display: flex; align-items: center; gap: 5px; }
+
+        /* CARDS */
+        .client-card { background: white; border-radius: 10px; padding: 15px; margin-bottom: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-left: 4px solid var(--primary); position: relative; }
+        .action-icons { position: absolute; top: 15px; right: 15px; display: flex; gap: 12px; }
+        .icon-btn { cursor: pointer; color: #666; font-size: 1.2rem; padding: 5px; transition: transform 0.2s; }
+        .icon-btn:hover { transform: scale(1.1); color: var(--primary); }
+
+        /* MODALS */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 5000; justify-content: center; align-items: center; padding: 20px; backdrop-filter: blur(3px); }
+        .modal-card { background: white; padding: 25px; border-radius: 15px; width: 100%; max-width: 400px; text-align: center; max-height: 90vh; overflow-y: auto; }
+        
+        /* DETALLE DATA (TABLA EN MODAL) */
+        .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; text-align: left; font-size: 0.9rem; }
+        .detail-label { font-weight: bold; color: #555; }
+        .detail-val { color: #000; text-align: right; max-width: 60%; word-wrap: break-word; }
+        .detail-header { background: #f0fdf4; color: var(--primary-dark); padding: 8px; font-weight: bold; text-align: left; margin-top: 15px; border-radius: 5px; }
+
+        /* PRINT */
+        #print-area { display: none; }
+        @media print {
+            body * { visibility: hidden; }
+            .modal-overlay { display: none; }
+            #print-area, #print-area * { visibility: visible; }
+            #print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 40px; background: white; display: block !important; color: #333; font-family: sans-serif; }
+            
+            /* Invoice Styles */
+            .invoice-container { max-width: 800px; margin: 0 auto; border: 1px solid #eee; padding: 30px; }
+            .inv-header { text-align: center; border-bottom: 2px solid var(--primary); margin-bottom: 30px; }
+            .inv-company { font-size: 28px; font-weight: bold; text-transform: uppercase; color: #064e3b; }
+            .inv-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+            .inv-table th { background: #f9fafb; padding: 12px; text-align: left; border-bottom: 2px solid #ddd; }
+            .inv-table td { padding: 12px; border-bottom: 1px solid #eee; }
+            
+            /* Technical Sheet Styles (Tabla Densa) */
+            .tech-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 12px; }
+            .tech-table th, .tech-table td { border: 1px solid #ccc; padding: 6px; text-align: left; }
+            .tech-table th { background-color: #eee; width: 35%; }
+            .tech-section { font-size: 14px; font-weight: bold; margin-top: 20px; margin-bottom: 5px; background: #333; color: white; padding: 5px; }
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <div id="splash-screen">
+        <div class="loader-icon"><i class="fas fa-wifi"></i></div>
+        <h1 style="margin-top: 10px;">INTAKDX WISP</h1>
+        <p>Sistema de Gestión Inteligente</p>
+        <div class="loading-bar"><div class="loading-progress"></div></div>
+    </div>
+
+    <div id="auth-screen" class="auth-container">
+        <div id="view-register" class="card" style="display:none;">
+            <h2 style="color:var(--primary)">Bienvenido</h2>
+            <p>Configura tu cuenta de Administrador</p>
+            <input type="text" id="reg-user" class="form-control" placeholder="Nombre de Usuario" style="margin-bottom:10px;">
+            <input type="password" id="reg-pass" class="form-control" placeholder="Contraseña" style="margin-bottom:10px;">
+            <div style="text-align:left; margin: 15px 0;">
+                <label><input type="checkbox" id="use-pin" onchange="togglePinSetup()"> Usar PIN de 4 dígitos</label>
+            </div>
+            <div id="setup-pin-area" style="display:none;">
+                <p>Crea tu PIN:</p>
+                <div class="pin-display" id="setup-pin-dots">
+                    <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
+                </div>
+                <div class="numpad">
+                    <button class="num-btn" onclick="addPinSetup(1)">1</button><button class="num-btn" onclick="addPinSetup(2)">2</button><button class="num-btn" onclick="addPinSetup(3)">3</button>
+                    <button class="num-btn" onclick="addPinSetup(4)">4</button><button class="num-btn" onclick="addPinSetup(5)">5</button><button class="num-btn" onclick="addPinSetup(6)">6</button>
+                    <button class="num-btn" onclick="addPinSetup(7)">7</button><button class="num-btn" onclick="addPinSetup(8)">8</button><button class="num-btn" onclick="addPinSetup(9)">9</button>
+                    <button class="num-btn" style="visibility:hidden"></button><button class="num-btn" onclick="addPinSetup(0)">0</button><button class="num-btn" onclick="clearPinSetup()" style="font-size:1rem; color:red;"><i class="fas fa-backspace"></i></button>
+                </div>
+            </div>
+            <button class="btn-primary" onclick="registerUser()">Registrar y Entrar</button>
+        </div>
+
+        <div id="view-login-pin" class="card" style="display:none;">
+            <i class="fas fa-lock" style="font-size: 2rem; color: var(--primary); margin-bottom: 15px;"></i>
+            <h3>Ingresa tu PIN</h3>
+            <div class="pin-display" id="login-pin-dots">
+                <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
+            </div>
+            <div class="numpad">
+                <button class="num-btn" onclick="addPinLogin(1)">1</button><button class="num-btn" onclick="addPinLogin(2)">2</button><button class="num-btn" onclick="addPinLogin(3)">3</button>
+                <button class="num-btn" onclick="addPinLogin(4)">4</button><button class="num-btn" onclick="addPinLogin(5)">5</button><button class="num-btn" onclick="addPinLogin(6)">6</button>
+                <button class="num-btn" onclick="addPinLogin(7)">7</button><button class="num-btn" onclick="addPinLogin(8)">8</button><button class="num-btn" onclick="addPinLogin(9)">9</button>
+                <button class="num-btn" style="visibility:hidden"></button><button class="num-btn" onclick="addPinLogin(0)">0</button><button class="num-btn" onclick="clearPinLogin()" style="font-size:1rem; color:red;"><i class="fas fa-backspace"></i></button>
+            </div>
+            <p style="margin-top:15px; font-size:0.8rem; color:#888; cursor:pointer;" onclick="resetSystem()">Olvidé mi PIN</p>
+        </div>
+
+        <div id="view-login-pass" class="card" style="display:none;">
+            <h2>Iniciar Sesión</h2>
+            <input type="text" id="login-user" class="form-control" placeholder="Usuario" style="margin-bottom:10px;">
+            <input type="password" id="login-pass" class="form-control" placeholder="Contraseña" style="margin-bottom:10px;">
+            <button class="btn-primary" onclick="loginUser()">Entrar</button>
+        </div>
+    </div>
+
+    <div id="main-app">
+        <header>
+            <div class="welcome-text">
+                <h1>Hola, <span id="display-username">Admin</span></h1>
+                <p>Panel de Control WISP</p>
+            </div>
+            <button class="logout-btn" onclick="logout()"><i class="fas fa-sign-out-alt"></i></button>
+        </header>
+
+        <div class="info-scroll">
+            <div class="info-card"><h4>🚀 Iniciar</h4><p>Registra nuevos clientes y sus antenas.</p></div>
+            <div class="info-card" style="border-left-color: #f59e0b;"><h4>📝 Facturación</h4><p>Genera reportes PDF al instante.</p></div>
+            <div class="info-card" style="border-left-color: #3b82f6;"><h4>📡 Inventario</h4><p>Controla emisoras y receptoras.</p></div>
+        </div>
+
+        <div class="menu-grid" id="main-menu">
+            <button class="menu-btn" onclick="showSection('section-info')"><i class="fas fa-info-circle"></i><span>Información</span></button>
+            <button class="menu-btn" onclick="createNewClient()"><i class="fas fa-user-plus"></i><span>Nuevo Cliente</span></button>
+            <button class="menu-btn" onclick="showSection('section-list')"><i class="fas fa-users"></i><span>Usuarios Reg.</span></button>
+            <button class="menu-btn" onclick="showSection('section-antennas')"><i class="fas fa-broadcast-tower"></i><span>Antenas Conectadas</span></button>
+        </div>
+
+        <div id="section-register" class="content-section">
+            <button class="btn-back" onclick="goHome()"><i class="fas fa-arrow-left"></i> Volver</button>
+            <h2 id="form-title">📝 Registrar Nuevo Ingreso</h2>
+            <form id="form-client">
+                <input type="hidden" id="client-id">
+                
+                <div class="form-section-header"><i class="fas fa-user"></i> Datos del Cliente</div>
+                <div class="form-grid">
+                    <div class="form-group"><label>Nombre del Cliente</label><input type="text" id="cli-name" class="form-control" placeholder="Nombre Completo"></div>
+                    <div class="form-group"><label>Cédula</label><input type="text" id="cli-cedula" class="form-control" placeholder="000-0000000-0"></div>
+                    <div class="form-group"><label>Teléfono</label><input type="tel" id="cli-phone" class="form-control" placeholder="809-000-0000"></div>
+                    <div class="form-group"><label>Costo Instalación (RD$)</label><input type="number" id="cli-cost" class="form-control" placeholder="0.00"></div>
+                </div>
+
+                <div class="form-section-header"><i class="fas fa-wifi"></i> Router Wi-Fi (Casa)</div>
+                <div class="form-grid">
+                    <div class="form-group"><label>Nombre Wi-Fi (SSID)</label><input type="text" id="router-ssid" class="form-control" placeholder="Mi_Casa_Wifi"></div>
+                    <div class="form-group"><label>Contraseña Router</label><input type="text" id="router-pass" class="form-control" placeholder="Clave123"></div>
+                </div>
+
+                <div class="form-section-header"><i class="fas fa-satellite-dish"></i> Antena Receptora (Cliente/CPE)</div>
+                <div class="form-grid">
+                    <div class="form-group"><label>Dirección MAC</label><input type="text" id="rec-mac" class="form-control"></div>
+                    <div class="form-group"><label>Nombre del Dispositivo</label><input type="text" id="rec-devname" class="form-control"></div>
+                    <div class="form-group"><label>Modo</label>
+                        <select id="rec-mode" class="form-control"><option value="Estación">Estación</option><option value="Puente">Puente</option><option value="Router">Router</option></select>
+                    </div>
+                    <div class="form-group"><label>SSID</label><input type="text" id="rec-ssid" class="form-control"></div>
+                    <div class="form-group"><label>Producto</label><input type="text" id="rec-product" class="form-control"></div>
+                    <div class="form-group"><label>Firmware</label><input type="text" id="rec-firmware" class="form-control"></div>
+                    <div class="form-group"><label>Dirección IP</label><input type="text" id="rec-ip" class="form-control"></div>
+                    <div class="form-group"><label>AP CONECTADA (MAC Emisor)</label><input type="text" id="rec-ap-connected" class="form-control"></div>
+                    <div class="form-group"><label>USUARIO WEB</label><input type="text" id="rec-user" class="form-control"></div>
+                    <div class="form-group"><label>CONTRASEÑA WEB</label><input type="text" id="rec-pass" class="form-control"></div>
+                </div>
+
+                <div class="form-section-header"><i class="fas fa-broadcast-tower"></i> Antena Emisora (Torre/AP)</div>
+                <div class="form-grid">
+                    <div class="form-group"><label>Dirección MAC</label><input type="text" id="emi-mac" class="form-control"></div>
+                    <div class="form-group"><label>Nombre del Dispositivo</label><input type="text" id="emi-devname" class="form-control"></div>
+                    <div class="form-group"><label>Modo</label>
+                        <select id="emi-mode" class="form-control"><option value="Punto de Acceso (AP)">Punto de Acceso (AP)</option><option value="Repetidor">Repetidor</option></select>
+                    </div>
+                    <div class="form-group"><label>SSID</label><input type="text" id="emi-ssid" class="form-control"></div>
+                    <div class="form-group"><label>Producto</label><input type="text" id="emi-product" class="form-control"></div>
+                    <div class="form-group"><label>Firmware</label><input type="text" id="emi-firmware" class="form-control"></div>
+                    <div class="form-group"><label>Dirección IP</label><input type="text" id="emi-ip" class="form-control"></div>
+                    <div class="form-group"><label>USUARIO WEB</label><input type="text" id="emi-user" class="form-control"></div>
+                    <div class="form-group"><label>CONTRASEÑA WEB</label><input type="text" id="emi-pass" class="form-control"></div>
+                </div>
+
+                <button type="button" class="btn-primary" onclick="saveClient()">Guardar Datos</button>
+            </form>
+        </div>
+
+        <div id="section-list" class="content-section">
+            <button class="btn-back" onclick="goHome()"><i class="fas fa-arrow-left"></i> Volver</button>
+            <h2>👥 Clientes Registrados</h2>
+            <input type="text" id="search-bar" class="form-control" placeholder="Buscar cliente..." onkeyup="renderClients(this.value)" style="margin-bottom:15px;">
+            <div id="clients-container"></div>
+        </div>
+
+        <div id="section-antennas" class="content-section">
+            <button class="btn-back" onclick="goHome()"><i class="fas fa-arrow-left"></i> Volver</button>
+            <h2>🔗 Antenas Conectadas</h2>
+            <div id="antennas-container"></div>
+        </div>
+        
+        <div id="section-info" class="content-section">
+            <button class="btn-back" onclick="goHome()"><i class="fas fa-arrow-left"></i> Volver</button>
+            <h2>ℹ️ Sobre el Programa</h2>
+            <div class="card"><p>Sistema A&A INTERESLINK v2.5</p></div>
+        </div>
+    </div>
+
+    <div id="payment-modal" class="modal-overlay">
+        <div class="modal-card">
+            <h3 style="color:var(--primary); margin-top:0;">Crear Factura</h3>
+            <p id="modal-client-name" style="font-weight:bold;"></p>
+            <div class="form-group" style="text-align:left;"><label>Concepto</label><input type="text" id="pay-concept" class="form-control" placeholder="Ej: Mensualidad"></div>
+            <div class="form-group" style="text-align:left;"><label>Monto (RD$)</label><input type="number" id="pay-amount" class="form-control" placeholder="0.00"></div>
+            <div style="display:flex; gap:10px;">
+                <button class="btn-primary" style="background:#ccc; color:#333;" onclick="closeModal('payment-modal')">Cancelar</button>
+                <button class="btn-primary" onclick="printPaymentInvoice()">🖨️ Imprimir</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="detail-modal" class="modal-overlay">
+        <div class="modal-card" style="max-width:500px; text-align:left;">
+            <h3 style="color:var(--primary); text-align:center; margin-top:0;">Ficha Técnica Completa</h3>
+            <div id="detail-content"></div>
+            <div style="display:flex; gap:10px; margin-top:15px;">
+                <button class="btn-primary" style="background:#ccc; color:#333;" onclick="closeModal('detail-modal')">Cerrar</button>
+                <button class="btn-primary" onclick="printTechnicalSheet()">🖨️ Imprimir Ficha Técnica</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="print-area"></div>
+
+    <script>
+        // --- LOGICA ---
+        
+        window.onload = function() { setTimeout(() => { document.getElementById('splash-screen').style.opacity = '0'; setTimeout(() => { document.getElementById('splash-screen').style.display = 'none'; checkAuth(); }, 800); }, 2500); };
+
+        // LOGIN SYSTEM
+        let tempPin="", savedPin=localStorage.getItem('wisp_pin'), currentUser=localStorage.getItem('wisp_user');
+        function checkAuth() { document.getElementById('auth-screen').style.display = 'flex'; if (!currentUser) document.getElementById('view-register').style.display = 'block'; else savedPin ? document.getElementById('view-login-pin').style.display = 'block' : document.getElementById('view-login-pass').style.display = 'block'; }
+        function togglePinSetup() { document.getElementById('setup-pin-area').style.display = document.getElementById('use-pin').checked ? 'block' : 'none'; }
+        function addPinSetup(n) { if (tempPin.length < 4) { tempPin += n; updateDots('setup-pin-dots', tempPin.length); } }
+        function clearPinSetup() { tempPin = ""; updateDots('setup-pin-dots', 0); }
+        function registerUser() { const u=document.getElementById('reg-user').value, p=document.getElementById('reg-pass').value; if(u&&p){ localStorage.setItem('wisp_user',u); localStorage.setItem('wisp_pass',p); if(document.getElementById('use-pin').checked && tempPin.length===4) localStorage.setItem('wisp_pin',tempPin); alert('Registro OK'); location.reload(); } else alert('Error'); }
+        let loginPinInput = ""; function addPinLogin(n) { if (loginPinInput.length < 4) { loginPinInput += n; updateDots('login-pin-dots', loginPinInput.length); if (loginPinInput.length === 4) setTimeout(() => verifyPin(), 200); } }
+        function clearPinLogin() { loginPinInput = ""; updateDots('login-pin-dots', 0); }
+        function verifyPin() { if (loginPinInput === savedPin) enterApp(); else { alert('PIN Incorrecto'); clearPinLogin(); } }
+        function updateDots(el, c) { const d = document.getElementById(el).children; for(let i=0; i<4; i++) d[i].classList.toggle('filled', i < c); }
+        function loginUser() { enterApp(); }
+        function enterApp() { document.getElementById('auth-screen').style.display = 'none'; document.getElementById('main-app').style.display = 'block'; document.getElementById('display-username').innerText = localStorage.getItem('wisp_user'); goHome(); }
+        function logout() { location.reload(); }
+        function resetSystem() { if(confirm("¿Borrar datos?")) { localStorage.clear(); location.reload(); } }
+
+        // NAVIGATION
+        function hideAllSections() { document.querySelectorAll('.content-section').forEach(el => el.style.display = 'none'); document.getElementById('main-menu').style.display = 'none'; document.querySelector('.info-scroll').style.display = 'none'; }
+        function goHome() { document.querySelectorAll('.content-section').forEach(el => el.style.display = 'none'); document.getElementById('main-menu').style.display = 'grid'; document.querySelector('.info-scroll').style.display = 'flex'; }
+        
+        function showSection(id) { 
+            hideAllSections(); 
+            document.getElementById(id).style.display = 'block'; 
+            if(id === 'section-list') renderClients(); 
+            if(id === 'section-antennas') renderAntenas(); 
+        }
+
+        // --- FUNCIONES DE CREACIÓN Y EDICIÓN ---
+
+        function createNewClient() {
+            // Limpiar formulario para nuevo registro
+            document.getElementById('form-client').reset();
+            document.getElementById('client-id').value = ""; // ID vacío = Nuevo
+            document.getElementById('form-title').innerText = "📝 Registrar Nuevo Ingreso";
+            showSection('section-register');
+        }
+
+        function editClient(id) {
+            const db = getClientsDB();
+            const c = db.find(client => client.id === id);
+            if (!c) return;
+
+            // Llenar formulario con datos existentes
+            document.getElementById('client-id').value = c.id;
+            document.getElementById('cli-name').value = c.name;
+            document.getElementById('cli-cedula').value = c.cedula;
+            document.getElementById('cli-phone').value = c.phone;
+            document.getElementById('cli-cost').value = c.cost;
+            document.getElementById('router-ssid').value = c.router_ssid;
+            document.getElementById('router-pass').value = c.router_pass;
+
+            document.getElementById('rec-mac').value = c.rec_mac;
+            document.getElementById('rec-devname').value = c.rec_devname;
+            document.getElementById('rec-mode').value = c.rec_mode;
+            document.getElementById('rec-ssid').value = c.rec_ssid;
+            document.getElementById('rec-product').value = c.rec_product;
+            document.getElementById('rec-firmware').value = c.rec_firmware;
+            document.getElementById('rec-ip').value = c.rec_ip;
+            document.getElementById('rec-ap-connected').value = c.rec_ap_connected;
+            document.getElementById('rec-user').value = c.rec_user;
+            document.getElementById('rec-pass').value = c.rec_pass;
+
+            document.getElementById('emi-mac').value = c.emi_mac;
+            document.getElementById('emi-devname').value = c.emi_devname;
+            document.getElementById('emi-mode').value = c.emi_mode;
+            document.getElementById('emi-ssid').value = c.emi_ssid;
+            document.getElementById('emi-product').value = c.emi_product;
+            document.getElementById('emi-firmware').value = c.emi_firmware;
+            document.getElementById('emi-ip').value = c.emi_ip;
+            document.getElementById('emi-user').value = c.emi_user;
+            document.getElementById('emi-pass').value = c.emi_pass;
+
+            // Cambiar titulo y mostrar
+            document.getElementById('form-title').innerText = "✏️ Editar Cliente";
+            showSection('section-register');
+        }
+
+        // DATABASE & CRUD
+        function getClientsDB() { return JSON.parse(localStorage.getItem('wisp_clients')) || []; }
+
+        function saveClient() {
+            const name = document.getElementById('cli-name').value;
+            if(!name) return alert("Nombre requerido");
+            
+            const idField = document.getElementById('client-id').value;
+            
+            // Recolectar datos
+            const clientData = {
+                id: idField ? parseInt(idField) : Date.now(), // Si hay ID usamos ese, si no, creamos uno nuevo
+                name: name,
+                cost: document.getElementById('cli-cost').value,
+                cedula: document.getElementById('cli-cedula').value,
+                phone: document.getElementById('cli-phone').value,
+                
+                router_ssid: document.getElementById('router-ssid').value,
+                router_pass: document.getElementById('router-pass').value,
+
+                rec_mac: document.getElementById('rec-mac').value,
+                rec_devname: document.getElementById('rec-devname').value,
+                rec_mode: document.getElementById('rec-mode').value,
+                rec_ssid: document.getElementById('rec-ssid').value,
+                rec_product: document.getElementById('rec-product').value,
+                rec_firmware: document.getElementById('rec-firmware').value,
+                rec_ip: document.getElementById('rec-ip').value,
+                rec_ap_connected: document.getElementById('rec-ap-connected').value,
+                rec_user: document.getElementById('rec-user').value,
+                rec_pass: document.getElementById('rec-pass').value,
+
+                emi_mac: document.getElementById('emi-mac').value,
+                emi_devname: document.getElementById('emi-devname').value,
+                emi_mode: document.getElementById('emi-mode').value,
+                emi_ssid: document.getElementById('emi-ssid').value,
+                emi_product: document.getElementById('emi-product').value,
+                emi_firmware: document.getElementById('emi-firmware').value,
+                emi_ip: document.getElementById('emi-ip').value,
+                emi_user: document.getElementById('emi-user').value,
+                emi_pass: document.getElementById('emi-pass').value
+            };
+
+            let db = getClientsDB();
+            
+            if(idField) {
+                // EDITAR EXISTENTE
+                const index = db.findIndex(c => c.id == idField);
+                if(index !== -1) {
+                    db[index] = clientData;
+                    alert("Datos Actualizados Correctamente");
+                }
+            } else {
+                // CREAR NUEVO
+                db.push(clientData);
+                alert("Cliente Guardado");
+            }
+
+            localStorage.setItem('wisp_clients', JSON.stringify(db));
+            document.getElementById('form-client').reset();
+            goHome();
+        }
+
+        function renderClients(filter = "") {
+            const db = getClientsDB(), container = document.getElementById('clients-container');
+            container.innerHTML = "";
+            db.filter(c => c.name.toLowerCase().includes(filter.toLowerCase())).forEach(c => {
+                const div = document.createElement('div');
+                div.className = 'client-card';
+                div.innerHTML = `
+                    <h3>${c.name}</h3>
+                    <div class="client-info"><span><strong>Tel:</strong> ${c.phone || '-'}</span><span><strong>IP:</strong> ${c.rec_ip || '-'}</span></div>
+                    <div class="action-icons">
+                        <i class="fas fa-eye icon-btn" style="color:#666;" onclick='openDetailModal(${JSON.stringify(c)})' title="Ver Todo"></i>
+                        <i class="fas fa-edit icon-btn" style="color:#f59e0b;" onclick='editClient(${c.id})' title="Editar"></i>
+                        <i class="fas fa-file-invoice-dollar icon-btn" style="color:#10b981;" onclick='openPaymentModal(${JSON.stringify(c)})' title="Factura"></i>
+                        <i class="fas fa-print icon-btn" style="color:#3b82f6;" onclick='printInstall(${JSON.stringify(c)})' title="Imprimir"></i>
+                        <i class="fas fa-trash icon-btn" onclick="deleteClient(${c.id})" style="color:#ef4444;" title="Eliminar"></i>
+                    </div>`;
+                container.appendChild(div);
+            });
+        }
+
+        function renderAntenas() {
+            const db = getClientsDB(), container = document.getElementById('antennas-container');
+            container.innerHTML = "";
+            if(db.length === 0) container.innerHTML = "<p style='text-align:center; color:#666;'>No hay antenas conectadas.</p>";
+            
+            db.forEach(c => {
+                // Tarjeta 1: Antena Cliente (CPE)
+                const div1 = document.createElement('div'); div1.className = 'client-card'; div1.style.borderLeftColor = '#3b82f6';
+                div1.innerHTML = `
+                    <h3>${c.rec_product || 'Antena CPE'}</h3>
+                    <div class="client-info">
+                        <span style="grid-column:span 2; color:#3b82f6;"><strong><i class="fas fa-user-circle"></i> Cliente Conectado:</strong> ${c.name}</span>
+                        <span><strong>MAC:</strong> ${c.rec_mac}</span>
+                        <span><strong>IP:</strong> ${c.rec_ip}</span>
+                    </div>
+                    <div class="action-icons">
+                        <i class="fas fa-eye icon-btn" style="color:#333;" onclick='openDetailModal(${JSON.stringify(c)})' title="Ver Datos"></i>
+                    </div>
+                `;
+                container.appendChild(div1);
+                
+                // Tarjeta 2: Antena Emisora
+                const div2 = document.createElement('div'); div2.className = 'client-card'; div2.style.borderLeftColor = '#f59e0b';
+                div2.innerHTML = `
+                    <h3>${c.emi_product || 'Torre Emisora'}</h3>
+                    <div class="client-info">
+                        <span style="grid-column:span 2; color:#f59e0b;"><strong><i class="fas fa-broadcast-tower"></i> Antena Emisora para:</strong> ${c.name}</span>
+                        <span><strong>MAC:</strong> ${c.emi_mac}</span>
+                        <span><strong>IP:</strong> ${c.emi_ip}</span>
+                    </div>
+                    <div class="action-icons">
+                        <i class="fas fa-eye icon-btn" style="color:#333;" onclick='openDetailModal(${JSON.stringify(c)})' title="Ver Datos"></i>
+                    </div>
+                `;
+                container.appendChild(div2);
+            });
+        }
+
+        function deleteClient(id) { if(confirm("¿Eliminar?")) { let db = getClientsDB().filter(c => c.id !== id); localStorage.setItem('wisp_clients', JSON.stringify(db)); renderClients(); } }
+
+        // --- MANEJO DE MODALS Y VISUALIZACIÓN COMPLETA ---
+        let currentClient = null;
+
+        function openDetailModal(client) {
+            currentClient = client;
+            const content = document.getElementById('detail-content');
+            
+            const row = (lbl, val) => `<div class="detail-row"><span class="detail-label">${lbl}</span><span class="detail-val">${val || '-'}</span></div>`;
+            const head = (txt) => `<div class="detail-header">${txt}</div>`;
+
+            let html = head("Datos Personales");
+            html += row("Nombre", client.name) + row("Cédula", client.cedula) + row("Teléfono", client.phone) + row("Costo Inst.", client.cost);
+            
+            html += head("Router Wi-Fi");
+            html += row("SSID", client.router_ssid) + row("Contraseña", client.router_pass);
+
+            html += head("Antena Cliente (CPE)");
+            html += row("Modelo", client.rec_product) + row("IP", client.rec_ip) + row("MAC", client.rec_mac) + row("Usuario Web", client.rec_user) + row("Pass Web", client.rec_pass);
+
+            html += head("Antena Emisora (Torre)");
+            html += row("Modelo", client.emi_product) + row("IP", client.emi_ip) + row("MAC", client.emi_mac) + row("Usuario Web", client.emi_user) + row("Pass Web", client.emi_pass);
+
+            content.innerHTML = html;
+            document.getElementById('detail-modal').style.display = 'flex';
+        }
+
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; }
+
+        // --- SISTEMA DE IMPRESIÓN (FACTURA vs HOJA TÉCNICA) ---
+        function openPaymentModal(c) { currentClient = c; document.getElementById('modal-client-name').innerText = c.name; document.getElementById('pay-concept').value = ""; document.getElementById('pay-amount').value = ""; document.getElementById('payment-modal').style.display = 'flex'; }
+        
+        function printPaymentInvoice() {
+            const concept = document.getElementById('pay-concept').value, amount = document.getElementById('pay-amount').value;
+            if(!concept || !amount) return alert("Llena los campos");
+            closeModal('payment-modal');
+            printInvoiceLayout(currentClient.name, concept, amount, "FACT-" + Math.floor(Math.random()*1000));
+        }
+
+        function printInstall(c) { printInvoiceLayout(c.name, "Servicio de Instalación de Internet", c.cost, "INST-" + Math.floor(Math.random()*1000)); }
+
+        function printInvoiceLayout(name, desc, price, num) {
+            const date = new Date().toLocaleDateString();
+            const priceFmt = parseFloat(price).toLocaleString('es-DO', {style: 'currency', currency: 'DOP'});
+            const html = `
+                <div class="invoice-container">
+                    <div class="inv-header"><h1 class="inv-company">A&A INTERESLINK</h1><p class="inv-slogan">Soluciones de Internet y Tecnología</p><p style="font-size:12px; color:#666;">Tel: 809-000-0000 | RNC: 000000000</p></div>
+                    <div class="inv-meta"><div><strong>CLIENTE:</strong><br><span style="font-size:16px;">${name}</span></div><div style="text-align:right;"><strong>FACTURA N°:</strong> ${num}<br><strong>FECHA:</strong> ${date}</div></div>
+                    <table class="inv-table"><thead><tr><th style="width:70%">DESCRIPCIÓN</th><th style="text-align:right">IMPORTE</th></tr></thead><tbody><tr><td>${desc}</td><td style="text-align:right">${priceFmt}</td></tr></tbody></table>
+                    <div class="inv-total">TOTAL: ${priceFmt}</div>
+                    <div class="inv-footer"><div class="signature">Firma A&A INTERESLINK</div><div class="signature">Firma Cliente</div></div>
+                    <div style="text-align:center; margin-top:50px; font-size:12px; color:#999;">Gracias por preferir nuestros servicios.</div>
+                </div>`;
+            document.getElementById('print-area').innerHTML = html;
+            window.print();
+        }
+
+        function printTechnicalSheet() {
+            const c = currentClient;
+            const date = new Date().toLocaleDateString();
+            
+            // Función para fila de tabla técnica
+            const tr = (l, v) => `<tr><th>${l}</th><td>${v || '-'}</td></tr>`;
+            
+            let html = `
+                <div class="invoice-container">
+                    <div class="inv-header"><h1 class="inv-company">A&A INTERESLINK</h1><h2 style="margin:0;">FICHA TÉCNICA DE CLIENTE</h2><p>Reporte Generado: ${date}</p></div>
+                    
+                    <div class="tech-section">1. DATOS PERSONALES</div>
+                    <table class="tech-table">
+                        ${tr('Cliente', c.name)}${tr('Cédula', c.cedula)}${tr('Teléfono', c.phone)}${tr('Costo Instalación', c.cost)}
+                    </table>
+
+                    <div class="tech-section">2. ROUTER DOMÉSTICO</div>
+                    <table class="tech-table">
+                        ${tr('SSID (Wi-Fi)', c.router_ssid)}${tr('Contraseña', c.router_pass)}
+                    </table>
+
+                    <div class="tech-section">3. ANTENA CLIENTE (CPE)</div>
+                    <table class="tech-table">
+                        ${tr('Modelo/Producto', c.rec_product)}${tr('Dirección IP', c.rec_ip)}${tr('Dirección MAC', c.rec_mac)}${tr('Modo', c.rec_mode)}
+                        ${tr('Firmware', c.rec_firmware)}${tr('Usuario Web', c.rec_user)}${tr('Contraseña Web', c.rec_pass)}${tr('AP Conectada (MAC)', c.rec_ap_connected)}
+                    </table>
+
+                    <div class="tech-section">4. ANTENA TORRE (EMISOR)</div>
+                    <table class="tech-table">
+                        ${tr('Modelo/Producto', c.emi_product)}${tr('Dirección IP', c.emi_ip)}${tr('Dirección MAC', c.emi_mac)}${tr('Modo', c.emi_mode)}
+                        ${tr('SSID', c.emi_ssid)}${tr('Usuario Web', c.emi_user)}${tr('Contraseña Web', c.emi_pass)}
+                    </table>
+                    
+                    <div style="margin-top:30px; font-size:12px; text-align:center;">Documento de uso interno y técnico - Confidencial.</div>
+                </div>`;
+            
+            document.getElementById('print-area').innerHTML = html;
+            window.print();
+        }
+
+    </script>
+</body>
+</html>
